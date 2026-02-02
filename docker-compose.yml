@@ -3,25 +3,44 @@ version: '3'
 volumes:
   pg_data:
   static:
+  media:
 
 services:
   db:
     image: postgres:13
+    env_file: .env
     volumes:
       - pg_data:/var/lib/postgresql/data
   backend:
+    image: kittygram_backend
     build: ./backend/
     env_file: .env
+    depends_on:
+      - db
+    command: >
+      sh -c "
+        python manage.py migrate &&
+        python manage.py runserver 0.0.0.0:8000
+      "
+    volumes:
+      - static:/static
+      - media:/media
   frontend:
+    image: kittygram_frontend
     env_file: .env
     build: ./frontend/
-    command: cp -r /app/build/. /static/
+    command: cp -r /app/build/. /static/ && npm test -- --watchAll=false
     volumes:
       - static:/static
   gateway:
+    image: kittygram_gateway
     build: ./nginx/
     env_file: .env
+    depends_on:
+      - backend
+      - frontend
     ports:
-      - 9000:80
+      - '9000:80'
     volumes:
       - static:/static
+      - media:/media
